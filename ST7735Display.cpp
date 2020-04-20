@@ -1,17 +1,9 @@
 #include "ST7735Display.h"
 
-struct eraseArea_t
-{
-  int16_t x = 0;
-  int16_t y = 0;
-  uint16_t w = 0;
-  uint16_t h = 0;
-} tempArea, humidArea;
-
 ST7735Display::ST7735Display()
 {
   tft = new Adafruit_ST7735(SPI_CS, SPI_DC, SPI_MOSI, SPI_SCLK, SPI_RST);
-  tft->setSPISpeed(400000000);
+  tft->setSPISpeed(4000000000);
 
   _width = 128;
   _height = 160;
@@ -62,14 +54,14 @@ void ST7735Display::BackgroundRender()
   CentreText(73, "Humidity");
 
   tft->setCursor(14, 45);
-  tft->print("Max");
-  tft->setCursor(64, 45);
   tft->print("Min");
+  tft->setCursor(64, 45);
+  tft->print("Max");
 
   tft->setCursor(14, 110);
-  tft->print("Max");
-  tft->setCursor(64, 110);
   tft->print("Min");
+  tft->setCursor(64, 110);
+  tft->print("Max");
 }
 
 void ST7735Display::RenderTemperature(float temperature)
@@ -85,20 +77,18 @@ void ST7735Display::RenderTemperature(float temperature)
 
   sprintf(buffer, "%.01f", temperature);
   
-  tft->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  GFXcanvas16 *rh_canvas = new GFXcanvas16(100, 22);
+  rh_canvas->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  rh_canvas->setFont(&Dialog_bold_24);
+  rh_canvas->setCursor(0, 22);
+  rh_canvas->print(buffer);
+  rh_canvas->print(" C");
+  rh_canvas->getTextBounds(buffer, 0, 22, &x1, &y1, &w, &h);
+  rh_canvas->drawCircle(x1 + w + 5, y1 + 4, 4, ST77XX_WHITE);
+    
+  tft->drawRGBBitmap(16, 17, rh_canvas->getBuffer(), 100, 22);
 
-  tft->setFont(&Dialog_bold_24);
-  tft->setCursor(16, 39);
-  tft->fillRect(tempArea.x, tempArea.y-1, tempArea.w, tempArea.h, ST77XX_BLACK);
-
-  tft->print(buffer);
-  tft->print(" C");
-
-  tft->getTextBounds(buffer, 16, 40, &x1, &y1, &w, &h);
-  tft->drawCircle(x1 + w + 5, y1 + 4, 4, ST77XX_WHITE);
-
-  sprintf(buffer, "%.01f C", temperature);
-  tft->getTextBounds(buffer, 16, 40, &tempArea.x, &tempArea.y, &tempArea.w, &tempArea.h);
+  delete rh_canvas;
 
   _currentTemp = temperature;
 }
@@ -116,14 +106,14 @@ void ST7735Display::RenderHumidity(float humidity)
 
   sprintf(buffer, "%.01f%%", humidity);
   
-  tft->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  GFXcanvas16 *rh_canvas = new GFXcanvas16(100, 22);
+  rh_canvas->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  rh_canvas->setFont(&Dialog_bold_24);
+  rh_canvas->setCursor(0, 22);
+  rh_canvas->print(buffer);
+  tft->drawRGBBitmap(20, 82, rh_canvas->getBuffer(), 100, 22);
 
-  tft->setFont(&Dialog_bold_24);
-  tft->setCursor(20, 104);
-  tft->fillRect(humidArea.x, humidArea.y, humidArea.w, humidArea.h, ST77XX_BLACK);
-
-  tft->print(buffer);
-  tft->getTextBounds(buffer, 20, 104, &humidArea.x, &humidArea.y, &humidArea.w, &humidArea.h);
+  delete rh_canvas;
 
   _currentHumid = humidity;
 }
@@ -135,11 +125,11 @@ void ST7735Display::RenderMaxMinTemperature(float maxTemperature, float minTempe
   tft->setTextColor(ST77XX_WHITE, ST77XX_BLACK);  
   tft->setFont();
 
-  sprintf(buffer, "%.01f", floorf(maxTemperature * 10) / 10);
+  sprintf(buffer, "%.01f", floorf(minTemperature * 10) / 10);
   tft->setCursor(34, 45);
   tft->print(buffer);
 
-  sprintf(buffer, "%.01f", floorf(minTemperature * 10) / 10);
+  sprintf(buffer, "%.01f", floorf(maxTemperature * 10) / 10);
   tft->setCursor(84, 45);
   tft->print(buffer);
 }
@@ -151,11 +141,11 @@ void ST7735Display::RenderMaxMinHumidity(float maxHumidity, float minHumidity)
   tft->setTextColor(ST77XX_WHITE, ST77XX_BLACK);  
   tft->setFont();
 
-  sprintf(buffer, "%.01f", floorf(maxHumidity * 10) / 10);
+  sprintf(buffer, "%.01f", floorf(minHumidity * 10) / 10);
   tft->setCursor(34, 110);
   tft->print(buffer);
 
-  sprintf(buffer, "%.01f", floorf(minHumidity * 10) / 10);
+  sprintf(buffer, "%.01f", floorf(maxHumidity * 10) / 10);
   tft->setCursor(84, 110);
   tft->print(buffer);
 }
