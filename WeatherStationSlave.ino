@@ -1,13 +1,32 @@
 #include <Wire.h>
 #include <Adafruit_AHT10.h>
+
+#ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
-#include <SPI.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_PCD8544.h>
-#include "lcdfont.h"
+#endif
+
 #include "Interval.h"
 #include "RingBuffer.h"
+
+// ----------------------------------------
+// Define what kind of display we are using
+// ----------------------------------------
+
+#define Display_ST7735
+// #define Display_Nokia5110
+// #define Display_OLED
+// #define Display_LCD
+
+#ifdef Display_ST7735
+#include "ST7735Display.h"
+SensorDisplay *display = new ST7735Display();
+#endif
+
+#ifdef Display_Nokia5110
+#include "Nokia5110Display.h"
+SensorDisplay *display = new Nokia5110Display();
+#endif
 
 #define IOTHUB  "192.168.0.10"
 #define IOTPORT "5555"
@@ -15,36 +34,24 @@
 Interval *reportInterval = NULL;
 Interval *displayInterval = NULL;
 
-// SPI Serial clock out (SCLK)
-// SPI Serial data out (DIN)
-// SPI Data/Command select (D/C)
-// SPI LCD chip select (CS)
-// SPI LCD reset (RST)
-#define SPI_SCLK  12
-#define SPI_DIN   13
-#define SPI_DC    15
-#define SPI_CS    3
-#define SPI_RST   1
-
-// I2C Data
-// I2C Clock
-#define I2C_SDA   0
-#define I2C_SCL   2
-
-Adafruit_PCD8544 display = Adafruit_PCD8544(SPI_SCLK, SPI_DIN, SPI_DC, SPI_CS, SPI_RST);
 Adafruit_AHT10 aht;
 
 RingBuffer tempBuffer(12);
 RingBuffer humidBuffer(12);
 
-char* activity = "|/-\\";
-
 bool hasAht10 = false;
+
+struct MaxMin_t
+{
+  bool Initial = true;
+  float MaxValue;
+  float MinValue;
+} MaxMinTemp, MaxMinHumid;
 
 void setup() {
   // put your setup code here, to run once:
 
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.setTimeout(2000);
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB
@@ -52,27 +59,23 @@ void setup() {
 
   Wire.begin(I2C_SDA, I2C_SCL);
 
-  display.begin();
-  display.setTextColor(BLACK);
-  display.setTextSize(1);
-  display.setContrast(50);  
-  display.clearDisplay();
-  
-  CentreText(0, "IOT Sensor");
-  CentreText(10, "Monitor v1.0");
-  display.display();
-
+  display->InitRender();
+  display->Logo();
+  display->Display();
+   
   if (aht.begin(&Wire, 0x32))
   {
-    CentreText(24, "Temperature");
-    CentreText(34, "Humidity");
-    display.display();  
+    display->HasCapability("Temperature");
+    display->HasCapability("Humidity");
+    display->Display();  
 
     hasAht10 = true;
   }
   
   delay(5000);
  
+  display->BackgroundRender();
+  
   reportInterval = new Interval(60000, false);   
   displayInterval = new Interval(5000, true);   
 }
@@ -86,18 +89,69 @@ void loop()
     // -------------
     // Get the stats
     // -------------
-    sensors_event_t humidity, temperature;
-    aht.getEvent(&humidity, &temperature);// populate temp and humidity objects with fresh data
+    if (hasAht10)
+    {
+      sensors_event_t humidity, temperature;
+      aht.getEvent(&humidity, &temperature);// populate temp and humidity objects with fresh data
 
-    tempBuffer.Add(temperature.temperature);
-    humidBuffer.Add(humidity.relative_humidity);
-    
-    float temp = tempBuffer.Average();
-    float humid = humidBuffer.Average();
+      tempBuffer.Add(temperature.temperature);
+      humidBuffer.Add(humidity.relative_humidity);
+      
+      float temp = tempBuffer.Average();
+      float humid = humidBuffer.Average();
 
-    // -----------------
-    // Display the stats
-    // -----------------
+      if (MaxMinTemp.Initial)
+      {
+        MaxMinTemp.MaxValue = MaxMinTemp.MinValue = temp;
+        MaxMinTemp.Initial = false;
+      }
+      else
+      {
+        if (temp > MaxMinTemp.MaxValue)
+          MaxMinTemp.MaxValue = temp;
+
+        if (temp < MaxMinTemp.MinValue)
+          MaxMinTemp.MinValue = temp;
+      }
+
+      if (MaxMinHumid.Initial)
+      {
+        MaxMinHumid.MaxValue = MaxMinHumid.MinValue = humid;
+        MaxMinHumid.Initial = false;
+      }
+      else
+      {
+        if (humid > MaxMinHumid.MaxValue)
+          MaxMinHumid.MaxValue = humid;
+
+        if (humid < MaxMinHumid.MinValue)
+          MaxMinHumid.MinValue = humid;
+      }
+
+      // -----------------
+      // Display the stats
+      // -----------------
+
+      display->RenderTemperature(temp);
+      display->RenderHumidity(humid);
+
+      display->RenderMaxMinTemperature(MaxMinTemp.MaxValue, MaxMinTemp.MinValue);
+      display->RenderMaxMinHumidity(MaxMinHumid.MaxValue, MaxMinHumid.MinValue);
+
+      display->Display();
+
+#ifdef ESP8266
+      if (!reportInterval->Ready())
+        return;
+
+      // -----------------------------
+      // Send the stats to the IOT hub
+      // -----------------------------
+      sprintf(buffer, "\"temperature\" : %f, \"humidity\" : %f", temp, humid);
+      WifiReport(buffer);
+#endif
+    }
+    /*
     display.clearDisplay();
     display.setFont(&Open_Sans_ExtraBold_20);
     
@@ -117,41 +171,24 @@ void loop()
     CentreText(40, "%Humidity");
     
     display.display();
+    */
 
-    if (!reportInterval->Ready())
-      return;
-      
-    // -----------------------------
-    // Send the stats to the IOT hub
-    // -----------------------------
-      
-    sprintf(buffer, "\"temperature\" : %f, \"humidity\" : %f", temp, humid);
-    WifiReport(buffer);
   }
-}
-
-void DisplayText(int x, int y, char *text)
-{
-  display.setCursor(x,y);
-  display.println(text);
-}
-
-void CentreText(int y, char *text)
-{
-  int x = 42 - ((strlen(text) * 6) / 2);
-  DisplayText(x,y,text);
 }
 
 void WifiStatus(char statusChar)
 {
+  /*
     display.fillRect(0,0,8,18, WHITE);
     display.setCursor(0,0);
     display.print(statusChar);
     display.display(); 
+    */
 }
 
 void WifiReport(char *sensorData)
 {
+  /*
   char buffer[512];
   WifiStatus('?');
   
@@ -213,4 +250,5 @@ void WifiReport(char *sensorData)
   
   display.fillRect(0,0,8,8, WHITE);
   display.display(); 
+  */
 }
