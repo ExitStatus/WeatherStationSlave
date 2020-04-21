@@ -8,6 +8,7 @@
 #include "Pins.h"
 #include "lcdfont.h"
 #include "SensorDisplay.h"
+#include "WifiIcons.h"
 
 class Nokia5110Display : public SensorDisplay
 {
@@ -29,6 +30,7 @@ class Nokia5110Display : public SensorDisplay
     virtual void RenderHumidity(float humidity);
     virtual void RenderMaxMinTemperature(float maxTemperature, float minTemperature);
     virtual void RenderMaxMinHumidity(float maxHumidity, float minHumidity);
+    virtual void RenderWifiStatus(int level);
 };
 
 #endif

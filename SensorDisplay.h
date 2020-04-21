@@ -18,6 +18,7 @@ class SensorDisplay
     virtual void RenderHumidity(float humidity) = 0;
     virtual void RenderMaxMinTemperature(float maxTemperature, float minTemperature);
     virtual void RenderMaxMinHumidity(float maxHumidity, float minHumidity);
+    virtual void RenderWifiStatus(int level);
 };
 
 #endif

@@ -81,3 +81,8 @@ void Nokia5110Display::CentreText(int y, char *text)
   lcd->setCursor(x,y);
   lcd->print(text);
 }
+
+void Nokia5110Display::RenderWifiStatus(int level)
+{
+
+}

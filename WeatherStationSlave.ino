@@ -8,6 +8,7 @@
 
 #include "Interval.h"
 #include "RingBuffer.h"
+#include "TheWifi.h"
 
 // ----------------------------------------
 // Define what kind of display we are using
@@ -28,14 +29,27 @@ SensorDisplay *display = new ST7735Display();
 SensorDisplay *display = new Nokia5110Display();
 #endif
 
+// ----------------------------------------
+// Define where we will post sensor data to
+// ----------------------------------------
 #define IOTHUB  "192.168.0.10"
 #define IOTPORT "5555"
 
+// ---------------------------
+// Define the wifi connection
+// ---------------------------
+TheWifi *wifi;
+
+// ---------------------------
+// Define the action intervals
+// ---------------------------
 Interval *reportInterval = NULL;
 Interval *displayInterval = NULL;
 
+// ----------------------------------------------------
+// Define for the AHT10 temperature and humidity sensor
+// ----------------------------------------------------
 Adafruit_AHT10 aht;
-
 RingBuffer tempBuffer(12);
 RingBuffer humidBuffer(12);
 
@@ -48,14 +62,17 @@ struct MaxMin_t
   float MinValue;
 } MaxMinTemp, MaxMinHumid;
 
+// -------------------------
+// Setup method called Once
+// -------------------------
 void setup() {
-  // put your setup code here, to run once:
 
   Serial.begin(115200);
   Serial.setTimeout(2000);
   while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB
   }
+
+  wifi = new TheWifi(0, display);
 
   Wire.begin(I2C_SDA, I2C_SCL);
 
@@ -174,6 +191,8 @@ void loop()
     */
 
   }
+
+  wifi->Render();
 }
 
 void WifiStatus(char statusChar)

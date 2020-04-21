@@ -156,3 +156,21 @@ void ST7735Display::CentreText(int y, char *text)
   tft->setCursor(x,y);
   tft->print(text);
 }
+
+void ST7735Display::RenderWifiStatus(int level)
+{
+  GFXcanvas16 *rh_canvas = new GFXcanvas16(8, 8);
+  switch (level)
+  {
+      case 0: rh_canvas->drawBitmap(0, 0, wifiOff, 8, 8, ST77XX_RED); break;
+      case 1: rh_canvas->drawBitmap(0, 0, wifiPower1, 8, 8, ST77XX_RED); break;
+      case 2: rh_canvas->drawBitmap(0, 0, wifiPower2, 8, 8, ST77XX_ORANGE); break;
+      case 3: rh_canvas->drawBitmap(0, 0, wifiPower3, 8, 8, ST77XX_ORANGE); break;
+      case 4: rh_canvas->drawBitmap(0, 0, wifiPower4, 8, 8, ST77XX_ORANGE); break;
+      case 5: rh_canvas->drawBitmap(0, 0, wifiPower5, 8, 8, ST77XX_GREEN); break;
+      default: rh_canvas->drawBitmap(0, 0, wifiPower6, 8, 8, ST77XX_GREEN); break;
+  }
+
+  tft->drawRGBBitmap(115, 140, rh_canvas->getBuffer(), 8, 8);
+  delete rh_canvas;
+}
