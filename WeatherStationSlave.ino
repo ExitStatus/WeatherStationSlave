@@ -1,11 +1,10 @@
 #include <Wire.h>
 #include <Adafruit_AHT10.h>
 
-
-
 #include "Interval.h"
 #include "RingBuffer.h"
 #include "TheWifi.h"
+#include "Button.h"
 
 // -----------------
 // Define the client
@@ -51,6 +50,11 @@ Interval *displayInterval = NULL;
 Interval *ntpInterval = NULL;
 Interval *clockInterval = NULL;
 Interval *clearInterval = NULL;
+
+// ------------------------
+// Define the input buttons
+// ------------------------
+Button *button1; 
 
 // ----------------------------------------------------
 // Define for the AHT10 temperature and humidity sensor
@@ -104,7 +108,9 @@ void setup() {
   displayInterval = new Interval(5000, true);   
   ntpInterval = new Interval(1000, true);   
   clockInterval = new Interval(1000, true);   
-  clearInterval = new Interval(360000, false);   
+  clearInterval = new Interval(360000, false);
+
+  button1 = new Button(BUTTON1);
 }
 
 // -------------------------------
@@ -247,5 +253,17 @@ void loop()
   HandleClock();
   HandleStatsActivity();
   HandleClearActivity();
+
+  if (button1->State() == BUTTON_CLICKED)
+  {
+  }
+
+  if (button1->State() == BUTTON_HELD)
+  {
+    MaxMinTemp.Initial = true;
+    MaxMinHumid.Initial = true;
+
+    displayInterval->Now();
+  }
 }
 

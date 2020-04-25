@@ -9,8 +9,10 @@
 #define SPI_CS      5
 #define SPI_RST     17
 
-#define I2C_SDA   25
-#define I2C_SCL   26
+#define I2C_SDA     25
+#define I2C_SCL     26
+
+#define BUTTON1     27
 
 #endif
 
@@ -24,6 +26,8 @@
 
 #define I2C_SDA   0
 #define I2C_SCL   2
+
+#define BUTTON1   5
 
 #endif
 
