@@ -1,14 +1,17 @@
 #include <Wire.h>
 #include <Adafruit_AHT10.h>
 
-#ifdef ESP8266
-#include <ESP8266WiFi.h>
-#include <ESP8266HTTPClient.h>
-#endif
+
 
 #include "Interval.h"
 #include "RingBuffer.h"
 #include "TheWifi.h"
+
+// -----------------
+// Define the client
+// -----------------
+
+#define ClientName  "Workshop"
 
 // ----------------------------------------
 // Define what kind of display we are using
@@ -45,6 +48,9 @@ TheWifi *wifi;
 // ---------------------------
 Interval *reportInterval = NULL;
 Interval *displayInterval = NULL;
+Interval *ntpInterval = NULL;
+Interval *clockInterval = NULL;
+Interval *clearInterval = NULL;
 
 // ----------------------------------------------------
 // Define for the AHT10 temperature and humidity sensor
@@ -69,8 +75,8 @@ void setup() {
 
   Serial.begin(115200);
   Serial.setTimeout(2000);
-  while (!Serial) {
-  }
+
+  while (!Serial) {  }
 
   wifi = new TheWifi(0, display);
 
@@ -78,6 +84,7 @@ void setup() {
 
   display->InitRender();
   display->Logo();
+  display->RenderWifiSSID(wifi->GetSSID());
   display->Display();
    
   if (aht.begin(&Wire, 0x32))
@@ -95,179 +102,150 @@ void setup() {
   
   reportInterval = new Interval(60000, false);   
   displayInterval = new Interval(5000, true);   
+  ntpInterval = new Interval(1000, true);   
+  clockInterval = new Interval(1000, true);   
+  clearInterval = new Interval(360000, false);   
 }
 
-void loop() 
+// -------------------------------
+// Handle the WIFI status changing
+// -------------------------------
+void HandleWifiStatus()
 {
-  if (displayInterval->Ready())
-  {
-    char buffer[64];
-
-    // -------------
-    // Get the stats
-    // -------------
-    if (hasAht10)
-    {
-      sensors_event_t humidity, temperature;
-      aht.getEvent(&humidity, &temperature);// populate temp and humidity objects with fresh data
-
-      tempBuffer.Add(temperature.temperature);
-      humidBuffer.Add(humidity.relative_humidity);
-      
-      float temp = tempBuffer.Average();
-      float humid = humidBuffer.Average();
-
-      if (MaxMinTemp.Initial)
-      {
-        MaxMinTemp.MaxValue = MaxMinTemp.MinValue = temp;
-        MaxMinTemp.Initial = false;
-      }
-      else
-      {
-        if (temp > MaxMinTemp.MaxValue)
-          MaxMinTemp.MaxValue = temp;
-
-        if (temp < MaxMinTemp.MinValue)
-          MaxMinTemp.MinValue = temp;
-      }
-
-      if (MaxMinHumid.Initial)
-      {
-        MaxMinHumid.MaxValue = MaxMinHumid.MinValue = humid;
-        MaxMinHumid.Initial = false;
-      }
-      else
-      {
-        if (humid > MaxMinHumid.MaxValue)
-          MaxMinHumid.MaxValue = humid;
-
-        if (humid < MaxMinHumid.MinValue)
-          MaxMinHumid.MinValue = humid;
-      }
-
-      // -----------------
-      // Display the stats
-      // -----------------
-
-      display->RenderTemperature(temp);
-      display->RenderHumidity(humid);
-
-      display->RenderMaxMinTemperature(MaxMinTemp.MaxValue, MaxMinTemp.MinValue);
-      display->RenderMaxMinHumidity(MaxMinHumid.MaxValue, MaxMinHumid.MinValue);
-
-      display->Display();
-
-#ifdef ESP8266
-      if (!reportInterval->Ready())
-        return;
-
-      // -----------------------------
-      // Send the stats to the IOT hub
-      // -----------------------------
-      sprintf(buffer, "\"temperature\" : %f, \"humidity\" : %f", temp, humid);
-      WifiReport(buffer);
-#endif
-    }
-    /*
-    display.clearDisplay();
-    display.setFont(&Open_Sans_ExtraBold_20);
-    
-    sprintf(buffer, "%0.2f", temp);
-    display.setCursor((42-(strlen(buffer)/2)*15),14);
-    display.print(buffer);
-
-    display.setFont();
-    CentreText(15, "Celsius");
-
-    display.setFont(&Open_Sans_ExtraBold_20);
-    sprintf(buffer, "%0.2f", humid);
-    display.setCursor((42-(strlen(buffer)/2)*15),39);
-    display.print(buffer);
-
-    display.setFont();
-    CentreText(40, "%Humidity");
-    
-    display.display();
-    */
-
-  }
-
-  wifi->Render();
+  wifi->Render();  
 }
 
-void WifiStatus(char statusChar)
+// ------------------------
+// Handle fetching NTP data
+// ------------------------
+void HandleNtp()
 {
-  /*
-    display.fillRect(0,0,8,18, WHITE);
-    display.setCursor(0,0);
-    display.print(statusChar);
-    display.display(); 
-    */
-}
+  if (!ntpInterval->Ready() || !wifi->IsConnected())
+    return;
 
-void WifiReport(char *sensorData)
-{
-  /*
-  char buffer[512];
-  WifiStatus('?');
-  
-  WiFi.mode(WIFI_STA);
-  WiFi.begin("SKYDCFAB", "TPPDMCMDRD");
-    
-  int activityIdx = 0;
-  int retries = 0;
-  while (WiFi.status() != WL_CONNECTED) 
-  {
-    WifiStatus(activity[activityIdx]);
-      
-    if (activityIdx++ > 3)
-      activityIdx = 0;
-    
-    delay(250);
+  display->RenderActivity(2);
 
-    if (++retries > 120 || WiFi.status() == WL_NO_SSID_AVAIL)
-    {
-      display.clearDisplay();
-      display.setFont();
-      display.printf("An error occurred connecting to Wifi access point SKYDCFAB");
-      display.display();
-      delay(10000);
-    
-      return;  
-    }
-  }
-    
-  Serial.print("Connected! IP address: ");
-  Serial.println(WiFi.localIP());
-  
-  sprintf(buffer, "{ \"client_name\": \"Office\",\"power_type\": \"AC\",\"power_level\": \"100\", \"sensors\" : { %s }}", sensorData);
-  
-  WiFiClient client;
-  HTTPClient http;
-  
-  http.begin(client, "http://" IOTHUB ":" IOTPORT "/api/record");
-  http.addHeader("Content-Type", "application/json");
-  
-  Serial.printf("Sending packet: %s\n", buffer);
-  int httpCode = http.POST(buffer);
-  if (httpCode == HTTP_CODE_OK)
+  if (wifi->GetNtpTime())
   {
-      const String& payload = http.getString();
-      Serial.println("received payload:\n<<");
-      Serial.println(payload);
+    ntpInterval->Reset(360000);
+    clearInterval->Reset(2000);
   }
   else
-  {
-    display.clearDisplay();
-    display.setFont();
-    display.printf("An error occurred sending data to the IOT hub - Code %d", httpCode);
-    display.display();
-    delay(10000);
-  }
-  
-  WiFi.disconnect();
-  
-  display.fillRect(0,0,8,8, WHITE);
-  display.display(); 
-  */
+    clearInterval->Reset(500);
 }
+
+// ------------------------
+// Handle the clock display
+// ------------------------
+void HandleClock()
+{
+  if (!clockInterval->Ready())
+    return;
+
+  char timebuffer[16];
+  char datebuffer[64];
+
+  wifi->GetTime(timebuffer, 16, datebuffer, 64);
+  display->RenderDateTime(timebuffer, datebuffer);
+}
+
+// ---------------------------------
+// Handle clearing the activity icon
+// ---------------------------------
+void HandleClearActivity()
+{
+  if (!clearInterval->Ready())
+    return;
+
+  display->RenderActivity(0);
+}
+
+// -------------------------
+// Handle updating the stats
+// -------------------------
+void HandleStatsActivity()
+{
+  if (!displayInterval->Ready())
+    return;
+
+  char buffer[64];
+
+  // -------------
+  // Get the stats
+  // -------------
+  if (hasAht10)
+  {
+    sensors_event_t humidity, temperature;
+    aht.getEvent(&humidity, &temperature);// populate temp and humidity objects with fresh data
+
+    tempBuffer.Add(temperature.temperature);
+    humidBuffer.Add(humidity.relative_humidity);
+    
+    float temp = tempBuffer.Average();
+    float humid = humidBuffer.Average();
+
+    if (MaxMinTemp.Initial)
+    {
+      MaxMinTemp.MaxValue = MaxMinTemp.MinValue = temp;
+      MaxMinTemp.Initial = false;
+    }
+    else
+    {
+      if (temp > MaxMinTemp.MaxValue)
+        MaxMinTemp.MaxValue = temp;
+
+      if (temp < MaxMinTemp.MinValue)
+        MaxMinTemp.MinValue = temp;
+    }
+
+    if (MaxMinHumid.Initial)
+    {
+      MaxMinHumid.MaxValue = MaxMinHumid.MinValue = humid;
+      MaxMinHumid.Initial = false;
+    }
+    else
+    {
+      if (humid > MaxMinHumid.MaxValue)
+        MaxMinHumid.MaxValue = humid;
+
+      if (humid < MaxMinHumid.MinValue)
+        MaxMinHumid.MinValue = humid;
+    }
+
+    // -----------------
+    // Display the stats
+    // -----------------
+
+    display->RenderTemperature(temp);
+    display->RenderHumidity(humid);
+
+    display->RenderMaxMinTemperature(MaxMinTemp.MaxValue, MaxMinTemp.MinValue);
+    display->RenderMaxMinHumidity(MaxMinHumid.MaxValue, MaxMinHumid.MinValue);
+
+    display->Display();
+
+    if (!reportInterval->Ready())
+      return;
+
+    // -----------------------------
+    // Send the stats to the IOT hub
+    // -----------------------------
+    sprintf(buffer, "\"temperature\" : %f, \"humidity\" : %f", temp, humid);
+    wifi->PostReport(IOTHUB, IOTPORT, ClientName, buffer);
+
+    clearInterval->Reset();
+  }
+}
+
+// -------------
+// THE MAIN LOOP
+// -------------
+void loop() 
+{
+  HandleWifiStatus();
+  HandleNtp();
+  HandleClock();
+  HandleStatsActivity();
+  HandleClearActivity();
+}
+

@@ -1,7 +1,17 @@
 #ifndef _THEWIFI_H
 #define _THEWIFI_H
 
-#include "WiFi.h"
+
+#ifdef ESP8266
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#endif
+
+#ifdef ESP32
+#include <WiFi.h>
+#include <HTTPClient.h>
+#endif
+
 #include "time.h"
 
 #include "Interval.h"
@@ -14,6 +24,9 @@ class TheWifi
     bool _connected = false;
     Interval *_timer;
     SensorDisplay *_lcd;
+    time_t ntpTime = 0;
+    uint32_t ntpTimeStart = 0;
+    bool DaylightSavings(struct tm *timeinfo, int year, int fromDay, int fromMonth, int toDay, int toMonth);
     
   public: 
     TheWifi(int networkId, SensorDisplay *display);
@@ -22,10 +35,12 @@ class TheWifi
     bool IsConnected();
     int GetStrength();
     const __FlashStringHelper *GetStatus();
-    String GetSSID();
+    char *GetSSID();
     int GetRSSI();
     IPAddress GetIP();
-    uint32_t GetNtpTime();
+    bool GetNtpTime();
+    void GetTime(char *timeBuffer, int timeLen, char *dateBuffer, int dateLen);
     void Render();
+    void PostReport(char *server, char *port, char *name, char *sensorData);
 }; 
 #endif

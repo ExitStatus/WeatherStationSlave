@@ -7,7 +7,7 @@ ST7735Display::ST7735Display()
 
   _width = 128;
   _height = 160;
-  _capy = 14;
+  _capy = 100;
 
  // tempArea.x = tempArea.y = tempArea.w = tempArea.h = 0;
 }
@@ -24,7 +24,17 @@ void ST7735Display::Display()
 
 void ST7735Display::Logo()
 {
-  CentreText(0, "Sensor v1.0");
+  CentreText(5, "Sensor v1.0");
+
+  GFXcanvas16 *rh_canvas = new GFXcanvas16(92, 77);
+  rh_canvas->drawRGBBitmap(0, 0, logoImage, 92, 77);
+  tft->drawRGBBitmap(18, 18, rh_canvas->getBuffer(), 92, 77);
+  delete rh_canvas;  
+}
+
+void ST7735Display::RenderWifiSSID(char *ssid)
+{
+  CentreText(150, ssid);
 }
 
 void ST7735Display::HasCapability(char *capability)
@@ -84,7 +94,7 @@ void ST7735Display::RenderTemperature(float temperature)
   rh_canvas->print(buffer);
   rh_canvas->print(" C");
   rh_canvas->getTextBounds(buffer, 0, 22, &x1, &y1, &w, &h);
-  rh_canvas->drawCircle(x1 + w + 5, y1 + 4, 4, ST77XX_WHITE);
+  rh_canvas->drawCircle(x1 + w + 5, y1 + 4, 3, ST77XX_WHITE);
     
   tft->drawRGBBitmap(16, 17, rh_canvas->getBuffer(), 100, 22);
 
@@ -173,4 +183,47 @@ void ST7735Display::RenderWifiStatus(int level)
 
   tft->drawRGBBitmap(115, 140, rh_canvas->getBuffer(), 8, 8);
   delete rh_canvas;
+}
+
+void ST7735Display::Error(char *message)
+{
+  GFXcanvas16 *rh_canvas = new GFXcanvas16(_width - 20, 23);
+  rh_canvas->setTextColor(ST77XX_RED, ST77XX_BLACK);
+  rh_canvas->setCursor(((_width - 20) / 2) - (strlen(message) * 6) / 2, 7);
+  rh_canvas->print(message);
+
+  tft->drawRGBBitmap(5, 134, rh_canvas->getBuffer(), _width - 20, 23);
+  delete rh_canvas;
+}
+
+void ST7735Display::RenderActivity(int activity)
+{
+  GFXcanvas16 *rh_canvas = new GFXcanvas16(16,16);
+
+  if (activity > 0)
+  {
+    switch (activity)
+    {
+      case 1: rh_canvas->drawRGBBitmap(0, 0, wifiPost, 16, 16); break;
+      case 2: rh_canvas->drawRGBBitmap(0, 0, wifiClock, 16, 16); break;
+    }
+  }
+
+  tft->drawRGBBitmap(5, 137, rh_canvas->getBuffer(), 16, 16);
+  delete rh_canvas;  
+}
+
+void ST7735Display::RenderDateTime(char *time, char *date)
+{
+  GFXcanvas16 *rh_canvas = new GFXcanvas16(92, 22);
+
+  rh_canvas->setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+  rh_canvas->setCursor(0, 0);
+  rh_canvas->print(time);  
+
+  rh_canvas->setCursor(0, 10);
+  rh_canvas->print(date);  
+
+  tft->drawRGBBitmap(24, 137, rh_canvas->getBuffer(), 92, 22);
+  delete rh_canvas;  
 }

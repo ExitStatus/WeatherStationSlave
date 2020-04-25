@@ -1,7 +1,9 @@
+
+
 #include "TheWifi.h"
 
 char *ssids[1] = { "SKYDCFAB" }; 
-char *passwords[1] = { "XXXX" };
+char *passwords[1] = { "XXX" };
 
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 0;
@@ -35,7 +37,6 @@ void TheWifi::Render()
     if (!_timer->Ready())
       return;
 
-    Serial.println(GetStatus());
     if (WiFi.status() != WL_CONNECTED)
         _lcd->RenderWifiStatus(0);
     else
@@ -86,9 +87,9 @@ const __FlashStringHelper *TheWifi::GetStatus()
     }
 }
 
-String TheWifi::GetSSID()
+char *TheWifi::GetSSID()
 {
-    return WiFi.SSID();
+    return ssids[_networkId];
 }
 
 int TheWifi::GetRSSI()
@@ -101,21 +102,172 @@ IPAddress TheWifi::GetIP()
     return WiFi.localIP();
 }
 
-uint32_t TheWifi::GetNtpTime()
+bool TheWifi::DaylightSavings(struct tm *timeinfo, int year, int fromDay, int fromMonth, int toDay, int toMonth)
+{
+    int day = timeinfo->tm_mday;
+    int month = timeinfo->tm_mon + 1;
+    int hour = timeinfo->tm_hour;
+
+    if (timeinfo->tm_year + 1900 != year)
+        return false;
+
+    if (month < fromMonth || (month == fromMonth && day < fromDay) || (month == fromMonth && day == fromDay && hour < 1))
+        return false;
+
+    if (month > toMonth || (month == toMonth && day > toDay) || (month == toMonth && day == toDay && hour > 1))
+        return false;
+
+    return true;
+}
+
+bool TheWifi::GetNtpTime()
 {
     struct tm timeinfo;
 
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
     if (!getLocalTime(&timeinfo))
+        return false;
+
+    ntpTime = mktime(&timeinfo);
+    ntpTimeStart = millis();
+
+    if (DaylightSavings(&timeinfo, 2020, 29, 3, 25, 10) ||
+        DaylightSavings(&timeinfo, 2021, 28, 3, 31, 10) ||
+        DaylightSavings(&timeinfo, 2022, 27, 3, 30, 10) ||
+        DaylightSavings(&timeinfo, 2023, 26, 3, 29, 10) ||
+        DaylightSavings(&timeinfo, 2024, 31, 3, 27, 10) ||
+        DaylightSavings(&timeinfo, 2025, 30, 3, 26, 10) ||
+        DaylightSavings(&timeinfo, 2026, 29, 3, 25, 10) ||
+        DaylightSavings(&timeinfo, 2027, 28, 3, 31, 10) ||
+        DaylightSavings(&timeinfo, 2028, 26, 3, 29, 10) ||
+        DaylightSavings(&timeinfo, 2029, 25, 3, 28, 10))
+            ntpTime += 3600;
+
+    return true;
+}
+
+void TheWifi::GetTime(char *timeBuffer, int timeLen, char *dateBuffer, int dateLen)
+{
+    if (ntpTime == 0)
     {
-        Serial.println("Failed to obtain time");
-        return 0;
+        *timeBuffer = '\0';
+        *dateBuffer = '\0';
+        return;
     }
 
-    Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");    
+    uint32_t ms = millis();
+    uint32_t elapsed = 0;
 
-    time_t rawtime = mktime(&timeinfo);
-    Serial.println(rawtime);
+    if (ms < ntpTimeStart)
+    {
+        if (GetNtpTime())
+        {
+            ms = millis();
+            elapsed = ms - ntpTimeStart;
+        }
+        else
+            elapsed = (4294967295 - ntpTimeStart) + ms;
 
-    return 0;
+    }
+    else
+        elapsed = ms - ntpTimeStart;
+
+    time_t current = ntpTime + (elapsed / 1000);
+
+    struct tm *timeinfo = localtime(&current);
+
+    strftime(timeBuffer, timeLen, "%I:%M:%S %p", timeinfo);
+    strftime(dateBuffer, dateLen, "%a %e %b %Y", timeinfo);
 }
+
+void TheWifi::PostReport(char *server, char *port, char *name, char *sensorData)
+{
+    char buffer[512];
+
+    if (WiFi.status() != WL_CONNECTED)
+        return;
+  
+    _lcd->RenderActivity(1);
+
+    WiFiClient client;
+    HTTPClient http;
+  
+    sprintf(buffer, "http://%s:%s/api/record", server, port);
+    
+    http.begin(client, buffer);
+    http.addHeader("Content-Type", "application/json");
+  
+    sprintf(buffer, "{ \"client_name\": \"%s\",\"power_type\": \"AC\",\"power_level\": \"100\", \"sensors\" : { %s }}", name, sensorData);
+
+    int httpCode = http.POST(buffer);
+    if (httpCode != HTTP_CODE_OK)
+    {
+        sprintf(buffer, "Error %d", httpCode);
+        _lcd->Error(buffer);
+        delay(10000);
+    }
+}
+
+  /*
+  char buffer[512];
+  WifiStatus('?');
+  
+  WiFi.mode(WIFI_STA);
+  WiFi.begin("SKYDCFAB", "TPPDMCMDRD");
+    
+  int activityIdx = 0;
+  int retries = 0;
+  while (WiFi.status() != WL_CONNECTED) 
+  {
+    WifiStatus(activity[activityIdx]);
+      
+    if (activityIdx++ > 3)
+      activityIdx = 0;
+    
+    delay(250);
+
+    if (++retries > 120 || WiFi.status() == WL_NO_SSID_AVAIL)
+    {
+      display.clearDisplay();
+      display.setFont();
+      display.printf("An error occurred connecting to Wifi access point SKYDCFAB");
+      display.display();
+      delay(10000);
+    
+      return;  
+    }
+  }
+    
+  Serial.print("Connected! IP address: ");
+  Serial.println(WiFi.localIP());
+  
+  sprintf(buffer, "{ \"client_name\": \"Office\",\"power_type\": \"AC\",\"power_level\": \"100\", \"sensors\" : { %s }}", sensorData);
+  
+  WiFiClient client;
+  HTTPClient http;
+  
+  http.begin(client, "http://" IOTHUB ":" IOTPORT "/api/record");
+  http.addHeader("Content-Type", "application/json");
+  
+  Serial.printf("Sending packet: %s\n", buffer);
+  int httpCode = http.POST(buffer);
+  if (httpCode == HTTP_CODE_OK)
+  {
+      const String& payload = http.getString();
+      Serial.println("received payload:\n<<");
+      Serial.println(payload);
+  }
+  else
+  {
+    display.clearDisplay();
+    display.setFont();
+    display.printf("An error occurred sending data to the IOT hub - Code %d", httpCode);
+    display.display();
+    delay(10000);
+  }
+  
+  WiFi.disconnect();
+  
+  display.fillRect(0,0,8,8, WHITE);
+  display.display(); 
+  */

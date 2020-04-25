@@ -14,11 +14,18 @@ class SensorDisplay
     virtual void Logo() = 0;
     virtual void HasCapability(char *capability);
     virtual void Display() = 0;
+
     virtual void RenderTemperature(float temperature) = 0;
     virtual void RenderHumidity(float humidity) = 0;
+
     virtual void RenderMaxMinTemperature(float maxTemperature, float minTemperature);
     virtual void RenderMaxMinHumidity(float maxHumidity, float minHumidity);
+
     virtual void RenderWifiStatus(int level);
+    virtual void RenderWifiSSID(char *ssid);
+    virtual void RenderActivity(int activity);
+    virtual void RenderDateTime(char *time, char *date);
+    virtual void Error(char *message);
 };
 
 #endif

@@ -16,6 +16,8 @@ class Interval
     void Start(uint32_t e, bool now);
     void Now();
     bool Ready();
+    void Reset();
+    void Reset(uint32_t e);
 };
 
 #endif

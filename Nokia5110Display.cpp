@@ -86,3 +86,43 @@ void Nokia5110Display::RenderWifiStatus(int level)
 {
 
 }
+
+void Nokia5110Display::Error(char *message)
+{
+
+}
+
+void Nokia5110Display::RenderActivity(int activity)
+{
+}
+
+void Nokia5110Display::RenderDateTime(char *time, char *date)
+{
+}
+
+void Nokia5110Display::RenderWifiSSID(char *ssid)
+{
+
+}
+
+    /*
+    display.clearDisplay();
+    display.setFont(&Open_Sans_ExtraBold_20);
+    
+    sprintf(buffer, "%0.2f", temp);
+    display.setCursor((42-(strlen(buffer)/2)*15),14);
+    display.print(buffer);
+
+    display.setFont();
+    CentreText(15, "Celsius");
+
+    display.setFont(&Open_Sans_ExtraBold_20);
+    sprintf(buffer, "%0.2f", humid);
+    display.setCursor((42-(strlen(buffer)/2)*15),39);
+    display.print(buffer);
+
+    display.setFont();
+    CentreText(40, "%Humidity");
+    
+    display.display();
+    */

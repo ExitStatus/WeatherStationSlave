@@ -12,6 +12,7 @@
 #include "Pins.h"
 #include "SensorDisplay.h"
 #include "WifiIcons.h"
+#include "LogoImage.h"
 
 class ST7735Display : public SensorDisplay
 {
@@ -35,6 +36,10 @@ class ST7735Display : public SensorDisplay
     virtual void RenderMaxMinTemperature(float maxTemperature, float minTemperature);
     virtual void RenderMaxMinHumidity(float maxHumidity, float minHumidity);
     virtual void RenderWifiStatus(int level);
+    virtual void RenderWifiSSID(char *ssid);
+    virtual void RenderActivity(int activity);
+    virtual void Error(char *message);
+    virtual void RenderDateTime(char *time, char *date);
 };
 
 #endif

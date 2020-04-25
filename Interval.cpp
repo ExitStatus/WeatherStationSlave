@@ -25,6 +25,19 @@ void Interval::Now()
     _now = true;
 }
 
+void Interval::Reset()
+{
+    _last = millis();
+    _now = false;
+}
+
+void Interval::Reset(uint32_t e)
+{
+    _every = e;
+    _last = millis();
+    _now = false;   
+}
+
 bool Interval::Ready()
 {
     uint32_t current = millis();
