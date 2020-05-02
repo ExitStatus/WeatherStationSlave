@@ -3,7 +3,11 @@
 ST7735Display::ST7735Display()
 {
   tft = new Adafruit_ST7735(SPI_CS, SPI_DC, SPI_MOSI, SPI_SCLK, SPI_RST);
-  tft->setSPISpeed(4000000000);
+
+  #ifdef ESP8266
+  SPI.begin();
+  SPI.setFrequency(16000000L);
+  #endif
 
   _width = 128;
   _height = 160;

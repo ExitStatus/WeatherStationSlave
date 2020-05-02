@@ -1,10 +1,11 @@
 #ifndef _THEWIFI_H
 #define _THEWIFI_H
 
-
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 #endif
 
 #ifdef ESP32
@@ -28,6 +29,11 @@ class TheWifi
     uint32_t ntpTimeStart = 0;
     bool DaylightSavings(struct tm *timeinfo, int year, int fromDay, int fromMonth, int toDay, int toMonth);
     
+#ifdef ESP8266
+    WiFiUDP *_ntpUDP;
+    NTPClient *_timeClient;
+#endif
+
   public: 
     TheWifi(int networkId, SensorDisplay *display);
     ~TheWifi();

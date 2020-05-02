@@ -16,7 +16,8 @@
 // Define what kind of display we are using
 // ----------------------------------------
 
-#define Display_ST7735
+#define Display_TFT_eSPI
+// #define Display_ST7735
 // #define Display_Nokia5110
 // #define Display_OLED
 // #define Display_LCD
@@ -29,6 +30,11 @@ SensorDisplay *display = new ST7735Display();
 #ifdef Display_Nokia5110
 #include "Nokia5110Display.h"
 SensorDisplay *display = new Nokia5110Display();
+#endif
+
+#ifdef Display_TFT_eSPI
+#include "TFTeSPIDisplay.h"
+SensorDisplay *display = new TFTeSPIDisplay();
 #endif
 
 // ----------------------------------------
@@ -75,19 +81,29 @@ struct MaxMin_t
 // -------------------------
 // Setup method called Once
 // -------------------------
-void setup() {
+void setup() 
+{
 
-  Serial.begin(115200);
+  Serial.begin(57600);
   Serial.setTimeout(2000);
-
   while (!Serial) {  }
 
-  wifi = new TheWifi(0, display);
+#ifdef ESP32
+  ledcSetup(0, 5000, 8);
+  ledcAttachPin(BACKLIGHT_OUTPUT_PIN, 0);
+  ledcWrite(0, 255);
+#endif
 
-  Wire.begin(I2C_SDA, I2C_SCL);
+#ifdef ESP8266
+  analogWrite(BACKLIGHT_OUTPUT_PIN, 1024);
+#endif
 
   display->InitRender();
   display->Logo();
+
+  wifi = new TheWifi(0, display);
+  Wire.begin(I2C_SDA, I2C_SCL);
+
   display->RenderWifiSSID(wifi->GetSSID());
   display->Display();
    
@@ -102,6 +118,8 @@ void setup() {
   
   delay(5000);
  
+   WiFi.printDiag(Serial);
+
   display->BackgroundRender();
   
   reportInterval = new Interval(60000, false);   
@@ -148,6 +166,8 @@ void HandleClock()
   if (!clockInterval->Ready())
     return;
 
+  Serial.println(wifi->GetStatus());
+
   char timebuffer[16];
   char datebuffer[64];
 
@@ -173,6 +193,7 @@ void HandleStatsActivity()
 {
   if (!displayInterval->Ready())
     return;
+
 
   char buffer[64];
 
@@ -240,6 +261,7 @@ void HandleStatsActivity()
     wifi->PostReport(IOTHUB, IOTPORT, ClientName, buffer);
 
     clearInterval->Reset();
+
   }
 }
 
@@ -248,22 +270,33 @@ void HandleStatsActivity()
 // -------------
 void loop() 
 {
+  int val = analogRead(LIGHT_INPUT_PIN);
+
+  #ifdef ESP32
+  ledcWrite(0, map(val, 0, 4096, 1, 255));
+  #endif
+
+  #ifdef ESP8266
+  analogWrite(BACKLIGHT_OUTPUT_PIN, map(val, 0, 1023, 1, 1023));
+  #endif
+
   HandleWifiStatus();
   HandleNtp();
   HandleClock();
   HandleStatsActivity();
   HandleClearActivity();
 
-  if (button1->State() == BUTTON_CLICKED)
+  switch (button1->State())
   {
-  }
+    case BUTTON_CLICKED:
+      break;
 
-  if (button1->State() == BUTTON_HELD)
-  {
-    MaxMinTemp.Initial = true;
-    MaxMinHumid.Initial = true;
-
-    displayInterval->Now();
+    case BUTTON_HELD:
+      MaxMinTemp.Initial = true;
+      MaxMinHumid.Initial = true;
+      displayInterval->Now();
+      break;
   }
+  
+  delay(100);
 }
-

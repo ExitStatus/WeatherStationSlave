@@ -17,11 +17,20 @@ TheWifi::TheWifi(int networkId, SensorDisplay *display)
 
     Serial.println("Connecting to WIFI");
 
-    WiFi.mode(WIFI_STA);
+    Serial.setDebugOutput(true);
+
     WiFi.disconnect();
+    WiFi.persistent(false);
+    WiFi.mode(WIFI_STA);
+    WiFi.setSleepMode(WIFI_NONE_SLEEP);
+    WiFi.setAutoReconnect(true);
+    WiFi.setOutputPower(17); 
     WiFi.begin(ssids[_networkId], passwords[_networkId]);
 
-    Serial.print(ssids[_networkId]);
+#ifdef ESP8266
+    _ntpUDP = new WiFiUDP();
+    _timeClient = new NTPClient(*_ntpUDP, ntpServer);
+#endif
 
     _timer = new Interval();
     _timer->Start(1000, true);
@@ -30,6 +39,8 @@ TheWifi::TheWifi(int networkId, SensorDisplay *display)
 TheWifi::~TheWifi()
 {
     delete _timer;
+    delete _timeClient;
+    delete _ntpUDP;
 }
 
 void TheWifi::Render()
@@ -124,12 +135,12 @@ bool TheWifi::GetNtpTime()
 {
     struct tm timeinfo;
 
+#ifdef ESP32
     configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
     if (!getLocalTime(&timeinfo))
         return false;
 
     ntpTime = mktime(&timeinfo);
-    ntpTimeStart = millis();
 
     if (DaylightSavings(&timeinfo, 2020, 29, 3, 25, 10) ||
         DaylightSavings(&timeinfo, 2021, 28, 3, 31, 10) ||
@@ -142,6 +153,35 @@ bool TheWifi::GetNtpTime()
         DaylightSavings(&timeinfo, 2028, 26, 3, 29, 10) ||
         DaylightSavings(&timeinfo, 2029, 25, 3, 28, 10))
             ntpTime += 3600;
+#endif
+
+#ifdef ESP8266
+
+    if (ntpTime == 0)
+    {
+        _timeClient->begin();
+        _timeClient->setTimeOffset(0);
+    }
+
+    _timeClient->update();
+    ntpTime = _timeClient->getEpochTime();
+
+    struct tm *p = localtime(&ntpTime);
+    
+    if (DaylightSavings(p, 2020, 29, 3, 25, 10) ||
+        DaylightSavings(p, 2021, 28, 3, 31, 10) ||
+        DaylightSavings(p, 2022, 27, 3, 30, 10) ||
+        DaylightSavings(p, 2023, 26, 3, 29, 10) ||
+        DaylightSavings(p, 2024, 31, 3, 27, 10) ||
+        DaylightSavings(p, 2025, 30, 3, 26, 10) ||
+        DaylightSavings(p, 2026, 29, 3, 25, 10) ||
+        DaylightSavings(p, 2027, 28, 3, 31, 10) ||
+        DaylightSavings(p, 2028, 26, 3, 29, 10) ||
+        DaylightSavings(p, 2029, 25, 3, 28, 10))
+            ntpTime += 3600;
+#endif
+
+    ntpTimeStart = millis();
 
     return true;
 }
@@ -155,8 +195,8 @@ void TheWifi::GetTime(char *timeBuffer, int timeLen, char *dateBuffer, int dateL
         return;
     }
 
-    uint32_t ms = millis();
-    uint32_t elapsed = 0;
+    uint64_t ms = millis();
+    uint64_t elapsed = 0;
 
     if (ms < ntpTimeStart)
     {
@@ -166,7 +206,7 @@ void TheWifi::GetTime(char *timeBuffer, int timeLen, char *dateBuffer, int dateL
             elapsed = ms - ntpTimeStart;
         }
         else
-            elapsed = (4294967295 - ntpTimeStart) + ms;
+            elapsed = (18446744073709551615 - ntpTimeStart) + ms;
 
     }
     else
