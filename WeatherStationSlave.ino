@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include <Adafruit_AHT10.h>
+#include <Adafruit_MCP23017.h>
 
 #include "Interval.h"
 #include "RingBuffer.h"
@@ -60,7 +61,7 @@ Interval *clearInterval = NULL;
 // ------------------------
 // Define the input buttons
 // ------------------------
-Button *button1; 
+Adafruit_MCP23017 mcp;
 
 // ----------------------------------------------------
 // Define for the AHT10 temperature and humidity sensor
@@ -101,8 +102,25 @@ void setup()
   display->InitRender();
   display->Logo();
 
-  wifi = new TheWifi(0, display);
   Wire.begin(I2C_SDA, I2C_SCL);
+
+  mcp.begin(0x00);
+
+  mcp.pinMode(4, INPUT);
+  mcp.pullUp(4, HIGH);
+
+  mcp.pinMode(5, INPUT);
+  mcp.pullUp(5, HIGH);
+
+  int dip1 = !mcp.digitalRead(4);
+  int dip2 = !mcp.digitalRead(5);
+
+  Serial.printf("DIP1 = %d\n", dip1);
+  Serial.printf("DIP2 = %d\n", dip2);
+  int dipSelected = (dip2 << 1) + dip1;
+  Serial.printf("NETWORK = %d\n", dipSelected);
+  
+  wifi = new TheWifi(dipSelected, display);
 
   display->RenderWifiSSID(wifi->GetSSID());
   display->Display();
@@ -118,8 +136,6 @@ void setup()
   
   delay(5000);
  
-   WiFi.printDiag(Serial);
-
   display->BackgroundRender();
   
   reportInterval = new Interval(60000, false);   
@@ -128,7 +144,7 @@ void setup()
   clockInterval = new Interval(1000, true);   
   clearInterval = new Interval(360000, false);
 
-  button1 = new Button(BUTTON1);
+  //button1 = new Button(BUTTON1);
 }
 
 // -------------------------------
@@ -166,7 +182,7 @@ void HandleClock()
   if (!clockInterval->Ready())
     return;
 
-  Serial.println(wifi->GetStatus());
+  //Serial.println(wifi->GetStatus());
 
   char timebuffer[16];
   char datebuffer[64];
@@ -286,6 +302,7 @@ void loop()
   HandleStatsActivity();
   HandleClearActivity();
 
+/*
   switch (button1->State())
   {
     case BUTTON_CLICKED:
@@ -297,6 +314,6 @@ void loop()
       displayInterval->Now();
       break;
   }
-  
+  */
   delay(100);
 }

@@ -22,6 +22,7 @@ class TheWifi
 {
   private:
     int _networkId;
+    bool _wifiOn = false;
     bool _connected = false;
     Interval *_timer;
     SensorDisplay *_lcd;

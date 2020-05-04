@@ -2,8 +2,8 @@
 
 #include "TheWifi.h"
 
-char *ssids[1] = { "SKYDCFAB" }; 
-char *passwords[1] = { "XXX" };
+char *ssids[4] = { "NONE", "SKYDCFAB", "GYMWIFI", "ANNEXEWIFI" }; 
+char *passwords[4] = { "NONE", "XXX", "GYMWIFIPASS", "ANNEXEWIFIPASS" };
 
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 0;
@@ -12,40 +12,46 @@ const int   daylightOffset_sec = 0;
 TheWifi::TheWifi(int networkId, SensorDisplay *display)
 {
     _lcd = display;
-
     _networkId = networkId;
 
-    Serial.println("Connecting to WIFI");
+    if (_networkId > 0 && _networkId <= 3)
+    {
+        // Serial.setDebugOutput(true);
+        WiFi.disconnect();
+        WiFi.persistent(false);
+        WiFi.mode(WIFI_STA);
+        WiFi.setSleepMode(WIFI_NONE_SLEEP);
+        WiFi.setAutoReconnect(true);
+        WiFi.setOutputPower(17); 
+        WiFi.begin(ssids[_networkId], passwords[_networkId]);
 
-    Serial.setDebugOutput(true);
-
-    WiFi.disconnect();
-    WiFi.persistent(false);
-    WiFi.mode(WIFI_STA);
-    WiFi.setSleepMode(WIFI_NONE_SLEEP);
-    WiFi.setAutoReconnect(true);
-    WiFi.setOutputPower(17); 
-    WiFi.begin(ssids[_networkId], passwords[_networkId]);
+        _wifiOn = true;
 
 #ifdef ESP8266
-    _ntpUDP = new WiFiUDP();
-    _timeClient = new NTPClient(*_ntpUDP, ntpServer);
+        _ntpUDP = new WiFiUDP();
+        _timeClient = new NTPClient(*_ntpUDP, ntpServer);
 #endif
 
-    _timer = new Interval();
-    _timer->Start(1000, true);
+        _timer = new Interval();
+        _timer->Start(1000, true);
+    }
 }
 
 TheWifi::~TheWifi()
 {
-    delete _timer;
-    delete _timeClient;
-    delete _ntpUDP;
+    if (_wifiOn)
+    {
+        delete _timer;
+#ifdef ESP8266
+        delete _timeClient;
+        delete _ntpUDP;
+#endif
+    }
 }
 
 void TheWifi::Render()
 {
-    if (!_timer->Ready())
+    if (!_wifiOn || !_timer->Ready())
       return;
 
     if (WiFi.status() != WL_CONNECTED)
@@ -56,7 +62,7 @@ void TheWifi::Render()
 
 bool TheWifi::IsConnected()
 {
-    if (WiFi.status() == WL_CONNECTED)
+    if (_wifiOn && WiFi.status() == WL_CONNECTED)
         return true;
     else
         return false;
@@ -64,27 +70,32 @@ bool TheWifi::IsConnected()
 
 int TheWifi::GetStrength()
 {
-    int rssi = WiFi.RSSI();
-    if (rssi < -80)
-        return 1;
+    if (_wifiOn)
+    {
+        int rssi = WiFi.RSSI();
+        if (rssi < -80)
+            return 1;
 
-    if (rssi< -75)
-        return 2;
+        if (rssi< -75)
+            return 2;
 
-    if (rssi < -70)
-        return 3;
+        if (rssi < -70)
+            return 3;
 
-    if (rssi < -65)
-        return 4;
+        if (rssi < -65)
+            return 4;
 
-    if (rssi < -60)
-        return 5;
-
+        if (rssi < -60)
+            return 5;
+    }
     return 6;
 }
 
 const __FlashStringHelper *TheWifi::GetStatus()
 {
+    if (_wifiOn)
+        return F("Off");
+
     switch (WiFi.status())
     {
         case WL_CONNECTED: return F("Connected");
@@ -100,16 +111,28 @@ const __FlashStringHelper *TheWifi::GetStatus()
 
 char *TheWifi::GetSSID()
 {
+    if (!_wifiOn)
+        return "WIFI OFF";
+
+    if (_networkId > 3)
+        return "UNKNOWN";
+
     return ssids[_networkId];
 }
 
 int TheWifi::GetRSSI()
 {
+    if (_wifiOn)
+        return 0;   
+
     return WiFi.RSSI();
 }
 
 IPAddress TheWifi::GetIP()
 {
+    if (_wifiOn)
+        return NULL; 
+
     return WiFi.localIP();
 }
 
@@ -133,6 +156,9 @@ bool TheWifi::DaylightSavings(struct tm *timeinfo, int year, int fromDay, int fr
 
 bool TheWifi::GetNtpTime()
 {
+    if (!_wifiOn)
+        return false;
+
     struct tm timeinfo;
 
 #ifdef ESP32
@@ -188,7 +214,7 @@ bool TheWifi::GetNtpTime()
 
 void TheWifi::GetTime(char *timeBuffer, int timeLen, char *dateBuffer, int dateLen)
 {
-    if (ntpTime == 0)
+    if (!_wifiOn || ntpTime == 0)
     {
         *timeBuffer = '\0';
         *dateBuffer = '\0';
@@ -222,6 +248,9 @@ void TheWifi::GetTime(char *timeBuffer, int timeLen, char *dateBuffer, int dateL
 
 void TheWifi::PostReport(char *server, char *port, char *name, char *sensorData)
 {
+    if (!_wifiOn)
+        return;
+
     char buffer[512];
 
     if (WiFi.status() != WL_CONNECTED)

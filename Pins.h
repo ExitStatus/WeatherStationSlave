@@ -30,7 +30,10 @@
 #define I2C_SDA   5
 #define I2C_SCL   4
 
-#define BUTTON1   10
+#define BUTTON1   3
+
+#define DIP1      10
+#define DIP2      9
 
 #define LIGHT_INPUT_PIN A0
 #define BACKLIGHT_OUTPUT_PIN    16
