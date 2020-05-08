@@ -22,6 +22,8 @@ class TFTeSPIDisplay : public SensorDisplay
     int _cx;
     int _cy;
 
+    bool _clearOnNextTimeDisplay = false;
+
   public:
     TFTeSPIDisplay();
     ~TFTeSPIDisplay();

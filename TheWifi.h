@@ -48,6 +48,6 @@ class TheWifi
     bool GetNtpTime();
     void GetTime(char *timeBuffer, int timeLen, char *dateBuffer, int dateLen);
     void Render();
-    void PostReport(char *server, char *port, char *name, char *sensorData);
+    int PostReport(char *server, char *port, char *name, char *sensorData);
 }; 
 #endif

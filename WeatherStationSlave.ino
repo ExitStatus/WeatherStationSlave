@@ -182,13 +182,14 @@ void HandleClock()
   if (!clockInterval->Ready())
     return;
 
-  //Serial.println(wifi->GetStatus());
-
   char timebuffer[16];
   char datebuffer[64];
 
   wifi->GetTime(timebuffer, 16, datebuffer, 64);
   display->RenderDateTime(timebuffer, datebuffer);
+
+  if (clockInterval->GetInterval() != 1000)
+    clockInterval->Reset(1000);
 }
 
 // ---------------------------------
@@ -274,7 +275,8 @@ void HandleStatsActivity()
     // Send the stats to the IOT hub
     // -----------------------------
     sprintf(buffer, "\"temperature\" : %f, \"humidity\" : %f", temp, humid);
-    wifi->PostReport(IOTHUB, IOTPORT, ClientName, buffer);
+    if (wifi->PostReport(IOTHUB, IOTPORT, ClientName, buffer) == 0)
+      clockInterval->Reset(10000);
 
     clearInterval->Reset();
 

@@ -38,6 +38,11 @@ void Interval::Reset(uint32_t e)
     _now = false;   
 }
 
+uint32_t Interval::GetInterval()
+{
+    return _every;
+}
+
 bool Interval::Ready()
 {
     uint32_t current = millis();

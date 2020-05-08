@@ -18,6 +18,7 @@ class Interval
     bool Ready();
     void Reset();
     void Reset(uint32_t e);
+    uint32_t GetInterval();
 };
 
 #endif

@@ -85,20 +85,28 @@ void TFTeSPIDisplay::BackgroundRender()
 void TFTeSPIDisplay::RenderTemperature(float temperature)
 {
   char buffer[32];
-  int16_t x1, y1;
-  uint16_t w, h;
 
   temperature = floorf(temperature * 10) / 10;
 
   if (_currentTemp == temperature)
     return;
 
-  sprintf(buffer, "%.01f  C", temperature);
+  sprintf(buffer, "%.01f", temperature);
   
-  tft->setTextColor(TFT_WHITE, TFT_BLACK);
-  tft->drawString(buffer, _cx - (tft->textWidth(buffer, 4)/2), 18, 4);
+  int tw = tft->textWidth(buffer, 4);
+  int dw = 8;
+  int cw = tft->textWidth("C\0", 2);
 
-  //tft->drawCircle(x1 + w + 5, y1 + 4, 3, TFT_WHITE);
+  int x = _cx - ((tw + dw + cw)/2);
+
+  if ( x < 0)
+    x = 0;
+
+  tft->setTextColor(TFT_WHITE, TFT_BLACK);
+  tft->drawString(buffer, x, 18, 4);
+  tft->drawString("C", x + tw + dw, 18,2);
+
+  tft->drawCircle(x + tw + 3, 23, 2, TFT_WHITE);
     
   _currentTemp = temperature;
 }
@@ -106,18 +114,22 @@ void TFTeSPIDisplay::RenderTemperature(float temperature)
 void TFTeSPIDisplay::RenderHumidity(float humidity)
 {
   char buffer[32];
-  int16_t x1, y1;
-  uint16_t w, h;
+
 
   humidity = floorf(humidity * 10) / 10;
 
   if (_currentHumid == humidity)
     return;
 
-  sprintf(buffer, "%.01f%%", humidity);
+  sprintf(buffer, "%.01f", humidity);
+
+  int w1 = tft->textWidth(buffer, 4);
+  int w2 = tft->textWidth("%\0", 2);
+  int x = _cx - ((w1+w2)/2);
 
   tft->setTextColor(TFT_WHITE, TFT_BLACK);
-  tft->drawString(buffer, _cx - (tft->textWidth(buffer, 4)/2), 83, 4);
+  tft->drawString(buffer, x, 83, 4);
+  tft->drawString("%\0", x + w1 + 3, 83, 2);
 
   _currentHumid = humidity;
 }
@@ -164,9 +176,11 @@ void TFTeSPIDisplay::RenderWifiStatus(int level)
 
 void TFTeSPIDisplay::Error(char *message)
 {
+  tft->fillRect(24, 137, 91, 20, TFT_BLACK);
+
   tft->setTextColor(TFT_RED, TFT_BLACK);
-  tft->setCursor(((_width - 20) / 2) - (strlen(message) * 6) / 27, 141);
-  tft->print(message);
+  tft->drawString(message, _cx - (tft->textWidth(message, 1)/2), 141, 1);
+  _clearOnNextTimeDisplay = true;
 }
 
 void TFTeSPIDisplay::RenderActivity(int activity)
@@ -185,7 +199,13 @@ void TFTeSPIDisplay::RenderActivity(int activity)
 
 void TFTeSPIDisplay::RenderDateTime(char *time, char *date)
 {
-    tft->setTextColor(TFT_WHITE, TFT_BLACK);
-    tft->drawString(time, 24, 137, 1);
-    tft->drawString(date, 24, 147, 1);
+  if (_clearOnNextTimeDisplay)
+  {
+    tft->fillRect(24, 137, 91, 20, TFT_BLACK);
+    _clearOnNextTimeDisplay = false;
+  }
+
+  tft->setTextColor(TFT_WHITE, TFT_BLACK);
+  tft->drawString(time, 24, 137, 1);
+  tft->drawString(date, 24, 147, 1);
 }

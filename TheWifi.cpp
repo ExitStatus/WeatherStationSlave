@@ -1,5 +1,3 @@
-
-
 #include "TheWifi.h"
 
 char *ssids[4] = { "NONE", "SKYDCFAB", "GYMWIFI", "ANNEXEWIFI" }; 
@@ -93,7 +91,8 @@ int TheWifi::GetStrength()
 
 const __FlashStringHelper *TheWifi::GetStatus()
 {
-    if (_wifiOn)
+
+    if (!_wifiOn)
         return F("Off");
 
     switch (WiFi.status())
@@ -130,7 +129,7 @@ int TheWifi::GetRSSI()
 
 IPAddress TheWifi::GetIP()
 {
-    if (_wifiOn)
+    if (!_wifiOn)
         return NULL; 
 
     return WiFi.localIP();
@@ -167,6 +166,8 @@ bool TheWifi::GetNtpTime()
         return false;
 
     ntpTime = mktime(&timeinfo);
+    if (ntpTime == 0)
+        return false;
 
     if (DaylightSavings(&timeinfo, 2020, 29, 3, 25, 10) ||
         DaylightSavings(&timeinfo, 2021, 28, 3, 31, 10) ||
@@ -191,6 +192,9 @@ bool TheWifi::GetNtpTime()
 
     _timeClient->update();
     ntpTime = _timeClient->getEpochTime();
+
+    if (ntpTime == 0)
+        return false;
 
     struct tm *p = localtime(&ntpTime);
     
@@ -243,18 +247,18 @@ void TheWifi::GetTime(char *timeBuffer, int timeLen, char *dateBuffer, int dateL
     struct tm *timeinfo = localtime(&current);
 
     strftime(timeBuffer, timeLen, "%I:%M:%S %p", timeinfo);
-    strftime(dateBuffer, dateLen, "%a %e %b %Y", timeinfo);
+    strftime(dateBuffer, dateLen, "%a %d %b %Y", timeinfo);
 }
 
-void TheWifi::PostReport(char *server, char *port, char *name, char *sensorData)
+int TheWifi::PostReport(char *server, char *port, char *name, char *sensorData)
 {
     if (!_wifiOn)
-        return;
+        return -1;
 
     char buffer[512];
 
     if (WiFi.status() != WL_CONNECTED)
-        return;
+        return -1;
   
     _lcd->RenderActivity(1);
 
@@ -271,10 +275,14 @@ void TheWifi::PostReport(char *server, char *port, char *name, char *sensorData)
     int httpCode = http.POST(buffer);
     if (httpCode != HTTP_CODE_OK)
     {
-        sprintf(buffer, "Error %d", httpCode);
-        _lcd->Error(buffer);
-        delay(10000);
+        Serial.printf("POST FAILED to %s\n", buffer);
+        Serial.println(http.errorToString(httpCode).c_str());
+
+        _lcd->Error("IOT Fail");
+        return 0;
     }
+
+    return 1;
 }
 
   /*
