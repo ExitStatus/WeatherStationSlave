@@ -4,6 +4,7 @@
 #ifdef ESP8266
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
+#include <ESP8266WebServer.h>
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 #endif
@@ -18,10 +19,13 @@
 #include "Interval.h"
 #include "SensorDisplay.h"
 
+enum WifiMode { Server, Client};
+
 class TheWifi
 {
   private:
-    int _networkId;
+    WifiMode _wifiMode;
+    char *softApPassword = NULL;
     bool _wifiOn = false;
     bool _connected = false;
     Interval *_timer;
@@ -30,21 +34,26 @@ class TheWifi
     uint32_t ntpTimeStart = 0;
     bool DaylightSavings(struct tm *timeinfo, int year, int fromDay, int fromMonth, int toDay, int toMonth);
     
+    void HandleServerRoot();
 #ifdef ESP8266
     WiFiUDP *_ntpUDP;
     NTPClient *_timeClient;
+    ESP8266WebServer *_webServer;
 #endif
 
   public: 
-    TheWifi(int networkId, SensorDisplay *display);
+    TheWifi(WifiMode mode, SensorDisplay *display);
     ~TheWifi();
 
+    WifiMode GetMode();
     bool IsConnected();
     int GetStrength();
     const __FlashStringHelper *GetStatus();
-    char *GetSSID();
+    String GetSSID();
     int GetRSSI();
-    IPAddress GetIP();
+    String GetIP();
+    String GetSoftApPassword();
+    void HandleSoftApClient();
     bool GetNtpTime();
     void GetTime(char *timeBuffer, int timeLen, char *dateBuffer, int dateLen);
     void Render();

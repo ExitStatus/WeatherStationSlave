@@ -11,8 +11,6 @@ TFTeSPIDisplay::TFTeSPIDisplay()
 
   _cx = _width / 2;
   _cy = _height / 2;
-
- // tempArea.x = tempArea.y = tempArea.w = tempArea.h = 0;
 }
 
 TFTeSPIDisplay::~TFTeSPIDisplay()
@@ -33,7 +31,27 @@ void TFTeSPIDisplay::Logo()
     tft->pushImage(18, 22, 92, 77, logoImage);
 }
 
-void TFTeSPIDisplay::RenderWifiSSID(char *ssid)
+void TFTeSPIDisplay::Setup(String ssid, String password, String address)
+{
+    tft->setTextDatum(TC_DATUM);
+    tft->drawString("Sensor v1.0", _cx, 5, 1);
+    tft->drawString("Setup", _cx, 15, 1);
+
+    tft->pushImage(_cx - 24, 30, 48, 48, setupImage);
+
+    tft->setTextColor(TFT_GREEN, TFT_BLACK);
+    
+    tft->drawString("SSID", _cx, 85, 1);
+    tft->drawString("Password", _cx, 111, 1);
+    tft->drawString("Address", _cx, 137, 1);
+
+    tft->setTextColor(TFT_WHITE, TFT_BLACK);
+    tft->drawString(ssid, _cx, 95, 1);
+    tft->drawString(password, _cx, 121, 1);
+    tft->drawString(address, _cx, 147, 1);
+}
+
+void TFTeSPIDisplay::RenderWifiSSID(String ssid)
 {
     tft->setTextDatum(TC_DATUM);
     tft->drawString(ssid, _cx, 150, 1);
@@ -49,7 +67,6 @@ void TFTeSPIDisplay::HasCapability(char *capability)
 
 void TFTeSPIDisplay::InitRender()
 {
-    Serial.print("Init Display");
     tft->init();
     tft->setRotation(0);
     tft->fillScreen(TFT_BLACK);

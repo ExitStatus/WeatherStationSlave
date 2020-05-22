@@ -40,6 +40,10 @@ void Nokia5110Display::Logo()
   CentreText(0, "Sensor v1.0");
 }
 
+void Nokia5110Display::Setup(String ssid, String password, String address)
+{
+}
+
 void Nokia5110Display::HasCapability(char *capability)
 {
   CentreText(_capy, capability);
@@ -100,7 +104,7 @@ void Nokia5110Display::RenderDateTime(char *time, char *date)
 {
 }
 
-void Nokia5110Display::RenderWifiSSID(char *ssid)
+void Nokia5110Display::RenderWifiSSID(String ssid)
 {
 
 }

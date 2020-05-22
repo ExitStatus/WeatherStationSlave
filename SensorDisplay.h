@@ -12,6 +12,7 @@ class SensorDisplay
     virtual void InitRender() = 0;
     virtual void BackgroundRender() = 0;
     virtual void Logo() = 0;
+    virtual void Setup(String ssid, String password, String address);
     virtual void HasCapability(char *capability);
     virtual void Display() = 0;
 
@@ -22,7 +23,7 @@ class SensorDisplay
     virtual void RenderMaxMinHumidity(float maxHumidity, float minHumidity);
 
     virtual void RenderWifiStatus(int level);
-    virtual void RenderWifiSSID(char *ssid);
+    virtual void RenderWifiSSID(String ssid);
     virtual void RenderActivity(int activity);
     virtual void RenderDateTime(char *time, char *date);
     virtual void Error(char *message);

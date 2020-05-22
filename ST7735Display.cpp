@@ -36,9 +36,14 @@ void ST7735Display::Logo()
   delete rh_canvas;  
 }
 
-void ST7735Display::RenderWifiSSID(char *ssid)
+void ST7735Display::Setup(String ssid, String password, String address)
 {
-  CentreText(150, ssid);
+}
+
+void ST7735Display::RenderWifiSSID(String ssid)
+{
+
+  CentreText(150, ssid.c_str());
 }
 
 void ST7735Display::HasCapability(char *capability)
@@ -164,7 +169,7 @@ void ST7735Display::RenderMaxMinHumidity(float maxHumidity, float minHumidity)
   tft->print(buffer);
 }
 
-void ST7735Display::CentreText(int y, char *text)
+void ST7735Display::CentreText(int y, const char *text)
 {
   int x = (_width / 2) - ((strlen(text) * 6) / 2);
   tft->setCursor(x,y);

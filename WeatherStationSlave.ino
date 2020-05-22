@@ -89,6 +89,9 @@ void setup()
   Serial.setTimeout(2000);
   while (!Serial) {  }
 
+  //----------------------------------------------
+  // Set the backlight full for the initial screen
+  //----------------------------------------------
 #ifdef ESP32
   ledcSetup(0, 5000, 8);
   ledcAttachPin(BACKLIGHT_OUTPUT_PIN, 0);
@@ -100,10 +103,56 @@ void setup()
 #endif
 
   display->InitRender();
-  display->Logo();
 
-  Wire.begin(I2C_SDA, I2C_SCL);
+  // If the reset button is pressed then start up as 
+  // a soft AP mode rather than station mode
+  pinMode(D6, INPUT_PULLUP);
+  if (digitalRead(D6) == 0)
+  {
+    Serial.println("RESET Requested");
+    wifi = new TheWifi(Server, display);
+  }
+  else
+    wifi = new TheWifi(Client, display);
 
+  // Check if are a client (station mode) and run normally. Even if the reset button 
+  // has not been pressed and we have requested being a client, if there are no credentials
+  // stored then we have to default to server (softAP)
+  if (wifi->GetMode() == Client)
+  {
+    display->Logo();
+
+    Wire.begin(I2C_SDA, I2C_SCL);
+
+    display->RenderWifiSSID(wifi->GetSSID());
+    display->Display();
+    
+    if (aht.begin(&Wire, 0x32))
+    {
+      display->HasCapability("Temperature");
+      display->HasCapability("Humidity");
+      display->Display();  
+
+      hasAht10 = true;
+    }
+    
+    delay(5000);
+  
+    display->BackgroundRender();
+    
+    reportInterval = new Interval(60000, false);   
+    displayInterval = new Interval(5000, true);   
+    ntpInterval = new Interval(1000, true);   
+    clockInterval = new Interval(1000, true);   
+    clearInterval = new Interval(360000, false);
+  }
+  else
+  {
+    display->Setup(wifi->GetSSID(), wifi->GetSoftApPassword(), wifi->GetIP());
+  }
+}
+
+/*
   mcp.begin(0x00);
 
   mcp.pinMode(4, INPUT);
@@ -119,34 +168,7 @@ void setup()
   Serial.printf("DIP2 = %d\n", dip2);
   int dipSelected = (dip2 << 1) + dip1;
   Serial.printf("NETWORK = %d\n", dipSelected);
-  
-  wifi = new TheWifi(dipSelected, display);
-
-  display->RenderWifiSSID(wifi->GetSSID());
-  display->Display();
-   
-  if (aht.begin(&Wire, 0x32))
-  {
-    display->HasCapability("Temperature");
-    display->HasCapability("Humidity");
-    display->Display();  
-
-    hasAht10 = true;
-  }
-  
-  delay(5000);
- 
-  display->BackgroundRender();
-  
-  reportInterval = new Interval(60000, false);   
-  displayInterval = new Interval(5000, true);   
-  ntpInterval = new Interval(1000, true);   
-  clockInterval = new Interval(1000, true);   
-  clearInterval = new Interval(360000, false);
-
-  //button1 = new Button(BUTTON1);
-}
-
+*/
 // -------------------------------
 // Handle the WIFI status changing
 // -------------------------------
@@ -167,7 +189,7 @@ void HandleNtp()
 
   if (wifi->GetNtpTime())
   {
-    ntpInterval->Reset(360000);
+    ntpInterval->Reset(3600000);
     clearInterval->Reset(2000);
   }
   else
@@ -288,34 +310,49 @@ void HandleStatsActivity()
 // -------------
 void loop() 
 {
-  int val = analogRead(LIGHT_INPUT_PIN);
-
-  #ifdef ESP32
-  ledcWrite(0, map(val, 0, 4096, 1, 255));
-  #endif
-
-  #ifdef ESP8266
-  analogWrite(BACKLIGHT_OUTPUT_PIN, map(val, 0, 1023, 1, 1023));
-  #endif
-
-  HandleWifiStatus();
-  HandleNtp();
-  HandleClock();
-  HandleStatsActivity();
-  HandleClearActivity();
-
-/*
-  switch (button1->State())
+  if (wifi->GetMode() == Client)
   {
-    case BUTTON_CLICKED:
-      break;
+    int val = analogRead(LIGHT_INPUT_PIN);
 
-    case BUTTON_HELD:
-      MaxMinTemp.Initial = true;
-      MaxMinHumid.Initial = true;
-      displayInterval->Now();
-      break;
+    #ifdef ESP32
+    ledcWrite(0, map(val, 0, 4096, 1, 255));
+    #endif
+
+    #ifdef ESP8266
+    int lightVal = map(val, 100, 800, 10, 1023);
+    if (lightVal < 10)
+      lightVal = 10;
+    else 
+    if (lightVal > 1023)
+      lightVal = 1023;
+      
+    analogWrite(BACKLIGHT_OUTPUT_PIN, lightVal);
+    #endif
+
+    HandleWifiStatus();
+    HandleNtp();
+    HandleClock();
+    HandleStatsActivity();
+    HandleClearActivity();
+
+  /*
+    switch (button1->State())
+    {
+      case BUTTON_CLICKED:
+        break;
+
+      case BUTTON_HELD:
+        MaxMinTemp.Initial = true;
+        MaxMinHumid.Initial = true;
+        displayInterval->Now();
+        break;
+    }
+    */
   }
-  */
+  else
+  {
+    wifi->HandleSoftApClient();
+  }
+
   delay(100);
 }

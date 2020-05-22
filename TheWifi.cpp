@@ -1,27 +1,50 @@
 #include "TheWifi.h"
 
-char *ssids[4] = { "NONE", "SKYDCFAB", "GYMWIFI", "ANNEXEWIFI" }; 
-char *passwords[4] = { "NONE", "XXX", "GYMWIFIPASS", "ANNEXEWIFIPASS" };
-
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 0;
 const int   daylightOffset_sec = 0;
+const char* softApSSID = "SensorSetup";
 
-TheWifi::TheWifi(int networkId, SensorDisplay *display)
+TheWifi::TheWifi(WifiMode wifiMode, SensorDisplay *display)
 {
     _lcd = display;
-    _networkId = networkId;
+    _wifiMode = wifiMode;
 
-    if (_networkId > 0 && _networkId <= 3)
+    if (WiFi.SSID().length() == 0)
     {
-        // Serial.setDebugOutput(true);
+        Serial.println("No setup SSID");
+        _wifiMode = Server;
+    }
+
+    if (_wifiMode == Server)
+    {
+        Serial.println("WIFI Starting in Soft AP mode");
+
         WiFi.disconnect();
-        WiFi.persistent(false);
-        WiFi.mode(WIFI_STA);
-        WiFi.setSleepMode(WIFI_NONE_SLEEP);
-        WiFi.setAutoReconnect(true);
-        WiFi.setOutputPower(17); 
-        WiFi.begin(ssids[_networkId], passwords[_networkId]);
+        WiFi.mode(WIFI_AP);
+
+        // srand ( time(NULL) );
+        softApPassword = new char[20];
+        sprintf(softApPassword, "%lu", rand () % 100000000);
+
+        Serial.printf("Soft AP SSID=%s PASSWORD=%s\n", softApSSID, softApPassword);
+
+        bool result = WiFi.softAP(softApSSID, softApPassword);
+
+        if (result == true)
+        {
+            Serial.println("Access Point Ready");
+
+            _webServer = new ESP8266WebServer(80);
+            _webServer->on("/", std::bind(&TheWifi::HandleServerRoot, this));
+            _webServer->begin();
+        }
+        else
+            Serial.println("Access Point Failed");
+    }
+    else
+    {
+        Serial.println("WIFI Starting in Station mode");
 
         _wifiOn = true;
 
@@ -32,19 +55,66 @@ TheWifi::TheWifi(int networkId, SensorDisplay *display)
 
         _timer = new Interval();
         _timer->Start(1000, true);
+
     }
+
+/*
+    if (reset)
+    {
+        if (ssids[_networkId] != WiFi.SSID())
+        {
+            WiFi.disconnect();
+            WiFi.persistent(false);
+            WiFi.mode(WIFI_STA);
+            WiFi.setSleepMode(WIFI_NONE_SLEEP);
+            WiFi.setAutoReconnect(true);
+            WiFi.setOutputPower(17); 
+            WiFi.begin(ssids[_networkId], passwords[_networkId]);
+        }
+        else
+        {
+            if (WiFi.waitForConnectResult() != WL_CONNECTED) 
+            {
+                Serial.println(F("Connection Failed!"));
+                //timeout_cb();
+            }
+        }
+        // Serial.setDebugOutput(true);
+
+    }
+    */
 }
 
 TheWifi::~TheWifi()
 {
+    if (softApPassword != NULL)
+        delete[] softApPassword;
+
     if (_wifiOn)
     {
         delete _timer;
 #ifdef ESP8266
         delete _timeClient;
         delete _ntpUDP;
+
+        if (_webServer != NULL)
+            delete _webServer;
 #endif
     }
+}
+
+void TheWifi::HandleServerRoot()
+{
+    _webServer->send(200, "text/html", "<h1>Hello from ESP8266 AP!</h1>");
+}
+
+void TheWifi::HandleSoftApClient()
+{
+    _webServer->handleClient();
+}
+WifiMode TheWifi::GetMode()
+{
+    return _wifiMode;
 }
 
 void TheWifi::Render()
@@ -108,15 +178,19 @@ const __FlashStringHelper *TheWifi::GetStatus()
     }
 }
 
-char *TheWifi::GetSSID()
+String TheWifi::GetSSID()
 {
-    if (!_wifiOn)
-        return "WIFI OFF";
+    if (_wifiMode == Server)
+    {
+        return softApSSID;
+    }
+    else
+    {
+        if (!_wifiOn)
+            return "WIFI OFF";
 
-    if (_networkId > 3)
-        return "UNKNOWN";
-
-    return ssids[_networkId];
+        return WiFi.SSID();
+    }
 }
 
 int TheWifi::GetRSSI()
@@ -127,12 +201,29 @@ int TheWifi::GetRSSI()
     return WiFi.RSSI();
 }
 
-IPAddress TheWifi::GetIP()
+String TheWifi::GetSoftApPassword()
 {
-    if (!_wifiOn)
-        return NULL; 
+    return softApPassword;
+}
 
-    return WiFi.localIP();
+String TheWifi::GetIP()
+{
+    IPAddress addr;
+    
+    if (_wifiMode == Server)
+        addr = WiFi.softAPIP();
+    else
+    {
+        if (!_wifiOn)
+            return "None"; 
+
+        addr = WiFi.localIP();
+    }
+
+    String s="";
+    for (int i=0; i<4; i++)
+        s += i  ? "." + String(addr[i]) : String(addr[i]);
+    return s;
 }
 
 bool TheWifi::DaylightSavings(struct tm *timeinfo, int year, int fromDay, int fromMonth, int toDay, int toMonth)
@@ -290,7 +381,7 @@ int TheWifi::PostReport(char *server, char *port, char *name, char *sensorData)
   WifiStatus('?');
   
   WiFi.mode(WIFI_STA);
-  WiFi.begin("SKYDCFAB", "TPPDMCMDRD");
+  WiFi.begin("xxx", "XXXXw");
     
   int activityIdx = 0;
   int retries = 0;
