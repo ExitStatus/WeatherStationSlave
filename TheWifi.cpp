@@ -3,7 +3,9 @@
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 0;
 const int   daylightOffset_sec = 0;
+
 const char* softApSSID = "SensorSetup";
+const byte  DNS_PORT = 53;
 
 TheWifi::TheWifi(WifiMode wifiMode, SensorDisplay *display)
 {
@@ -23,20 +25,27 @@ TheWifi::TheWifi(WifiMode wifiMode, SensorDisplay *display)
         WiFi.disconnect();
         WiFi.mode(WIFI_AP);
 
+        _dnsServer = new DNSServer();
+
         // srand ( time(NULL) );
         softApPassword = new char[20];
         sprintf(softApPassword, "%lu", rand () % 100000000);
 
         Serial.printf("Soft AP SSID=%s PASSWORD=%s\n", softApSSID, softApPassword);
 
+        IPAddress apIP(192, 168, 1, 1);
+        WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
         bool result = WiFi.softAP(softApSSID, softApPassword);
 
         if (result == true)
         {
             Serial.println("Access Point Ready");
 
+            _dnsServer->start(DNS_PORT, "*", apIP);
+
             _webServer = new ESP8266WebServer(80);
             _webServer->on("/", std::bind(&TheWifi::HandleServerRoot, this));
+            _webServer->on("/complete", std::bind(&TheWifi::HandleServerComplete, this));
             _webServer->begin();
         }
         else
@@ -105,12 +114,38 @@ TheWifi::~TheWifi()
 
 void TheWifi::HandleServerRoot()
 {
-    _webServer->send(200, "text/html", "<h1>Hello from ESP8266 AP!</h1>");
+    String html = F("<html><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><head><title>Sensor Setup</title></head>");
+    html += F("<style>table, tr, td {border: none; }</style>");
+    html += F("<body><h1>Sensor Setup</h1>");
+    html += F("<form action=\"/complete\">");
+    html += F("<table>");
+    html += F("<tr><td align=\"right\"><label for=\"location\">Location:</label></td><td><input type=\"text\" name=\"location\" id=\"location\"></td></tr>");
+    html += F("<tr><td align=\"right\"><label for=\"ssid\">SSID:</label></td><td><input type=\"text\" name=\"ssid\" id=\"ssid\"></td></tr>");
+    html += F("<tr><td align=\"right\"><label for=\"password\">Password:</label></td><td><input type=\"password\" name=\"password\" id=\"password\"></td></tr>");
+    html += F("<tr><td align=\"right\" colspan=2><input type=\"checkbox\" name=\"client\" id=\"client\"><label for=\"client\">Send sensor readings to server</label></td></tr>");
+    html += F("<tr><td align=\"right\"><label for=\"server\">Server IP:</label></td><td><input type=\"text\" name=\"server\" id=\"server\"></td></tr>");
+    html += F("</table>");
+    html += F("<br/><br/><input type=\"submit\" value=\"Submit\">");
+    html += F("</form></body></html>");
+
+    _webServer->send(200, "text/html", html);
+}
+
+void TheWifi::HandleServerComplete()
+{
+    String html = F("<html><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><head><title>Sensor Setup</title></head>");
+    html += F("<style>table, tr, td {border: none; }</style>");
+    html += F("<body><h1>Sensor Setup Complete</h1>");
+    html += F("<p>Your settings have been saved. The sensor will now restart and attempt to connect to the wifi network you have specified.</p><p>If there are connection issues, ");
+    html += F("hold down the button when powering on the sensor to bring up the sensor in setup access point mode</p></body></html>");
+
+    _webServer->send(200, "text/html", html);
 }
 
 void TheWifi::HandleSoftApClient()
 {
     _webServer->handleClient();
+    _dnsServer->processNextRequest();
 }
 WifiMode TheWifi::GetMode()
 {

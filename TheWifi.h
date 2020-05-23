@@ -14,6 +14,7 @@
 #include <HTTPClient.h>
 #endif
 
+#include "DNSServer.h"
 #include "time.h"
 
 #include "Interval.h"
@@ -32,9 +33,11 @@ class TheWifi
     SensorDisplay *_lcd;
     time_t ntpTime = 0;
     uint32_t ntpTimeStart = 0;
+    DNSServer *_dnsServer;
     bool DaylightSavings(struct tm *timeinfo, int year, int fromDay, int fromMonth, int toDay, int toMonth);
     
     void HandleServerRoot();
+    void HandleServerComplete();
 #ifdef ESP8266
     WiFiUDP *_ntpUDP;
     NTPClient *_timeClient;
