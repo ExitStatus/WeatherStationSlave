@@ -7,6 +7,8 @@ const int   daylightOffset_sec = 0;
 const char* softApSSID = "SensorSetup";
 const byte  DNS_PORT = 53;
 
+extern Settings GlobalSettings;
+
 TheWifi::TheWifi(WifiMode wifiMode, SensorDisplay *display)
 {
     _lcd = display;
@@ -120,10 +122,55 @@ void TheWifi::HandleServerRoot()
     html += F("<form action=\"/complete\">");
     html += F("<table>");
     html += F("<tr><td align=\"right\"><label for=\"location\">Location:</label></td><td><input type=\"text\" name=\"location\" id=\"location\"></td></tr>");
-    html += F("<tr><td align=\"right\"><label for=\"ssid\">SSID:</label></td><td><input type=\"text\" name=\"ssid\" id=\"ssid\"></td></tr>");
+    html += F("<tr><td align=\"right\"><label for=\"ssid\">SSID:</label></td><td><select name=\"ssid\" id=\"ssid\">");
+    
+    int netCount = WiFi.scanNetworks();
+    int dedupedCount = 0;
+    String found[netCount];
+
+    for (int i = 0; i < netCount; i++)
+    {
+        bool flag = false;
+        for (int j=0; j<dedupedCount; j++)
+        {
+            if (found[j] == WiFi.SSID(i))
+            {
+                flag = true;
+                break;
+            }
+        }
+
+        if (!flag)
+        {
+            found[dedupedCount] = WiFi.SSID(i);
+            dedupedCount++;
+        }
+    } 
+
+
+    for (int i = 0; i < dedupedCount; ++i) 
+    {
+        html += F("<option value=\"");
+        html += found[i];
+        html += F("\">");
+        html += found[i];
+        html += F("</option>");
+    }
+
+    html += F("</select></td></tr>");
+
     html += F("<tr><td align=\"right\"><label for=\"password\">Password:</label></td><td><input type=\"password\" name=\"password\" id=\"password\"></td></tr>");
-    html += F("<tr><td align=\"right\" colspan=2><input type=\"checkbox\" name=\"client\" id=\"client\"><label for=\"client\">Send sensor readings to server</label></td></tr>");
-    html += F("<tr><td align=\"right\"><label for=\"server\">Server IP:</label></td><td><input type=\"text\" name=\"server\" id=\"server\"></td></tr>");
+
+    html += F("<tr><td align=\"right\" colspan=2><input type=\"checkbox\" name=\"client\" id=\"client\"");
+    if (GlobalSettings.GetSendReadings())
+        html += F(" checked");
+
+    html += F("><label for=\"client\">Send sensor readings to server</label></td></tr>");
+
+    html += F("<tr><td align=\"right\"><label for=\"server\">Server IP:</label></td><td><input type=\"text\" name=\"server\" id=\"server\" value=\"");
+    html += GlobalSettings.GetServerAddress();
+    html += F("\"></td></tr>");
+
     html += F("</table>");
     html += F("<br/><br/><input type=\"submit\" value=\"Submit\">");
     html += F("</form></body></html>");
@@ -222,7 +269,7 @@ String TheWifi::GetSSID()
     else
     {
         if (!_wifiOn)
-            return "WIFI OFF";
+            return F("WIFI OFF");
 
         return WiFi.SSID();
     }
@@ -250,7 +297,7 @@ String TheWifi::GetIP()
     else
     {
         if (!_wifiOn)
-            return "None"; 
+            return F("None");
 
         addr = WiFi.localIP();
     }

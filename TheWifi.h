@@ -19,6 +19,7 @@
 
 #include "Interval.h"
 #include "SensorDisplay.h"
+#include "Settings.h"
 
 enum WifiMode { Server, Client};
 

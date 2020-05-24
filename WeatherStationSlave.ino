@@ -1,6 +1,5 @@
 #include <Wire.h>
 #include <Adafruit_AHT10.h>
-#include <Adafruit_MCP23017.h>
 
 #include "Interval.h"
 #include "RingBuffer.h"
@@ -58,11 +57,6 @@ Interval *ntpInterval = NULL;
 Interval *clockInterval = NULL;
 Interval *clearInterval = NULL;
 
-// ------------------------
-// Define the input buttons
-// ------------------------
-Adafruit_MCP23017 mcp;
-
 // ----------------------------------------------------
 // Define for the AHT10 temperature and humidity sensor
 // ----------------------------------------------------
@@ -89,6 +83,7 @@ void setup()
   Serial.setTimeout(2000);
   while (!Serial) {  }
 
+  
   //----------------------------------------------
   // Set the backlight full for the initial screen
   //----------------------------------------------
@@ -152,23 +147,6 @@ void setup()
   }
 }
 
-/*
-  mcp.begin(0x00);
-
-  mcp.pinMode(4, INPUT);
-  mcp.pullUp(4, HIGH);
-
-  mcp.pinMode(5, INPUT);
-  mcp.pullUp(5, HIGH);
-
-  int dip1 = !mcp.digitalRead(4);
-  int dip2 = !mcp.digitalRead(5);
-
-  Serial.printf("DIP1 = %d\n", dip1);
-  Serial.printf("DIP2 = %d\n", dip2);
-  int dipSelected = (dip2 << 1) + dip1;
-  Serial.printf("NETWORK = %d\n", dipSelected);
-*/
 // -------------------------------
 // Handle the WIFI status changing
 // -------------------------------
