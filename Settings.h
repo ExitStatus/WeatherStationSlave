@@ -22,6 +22,10 @@ class Settings
         String GetLocation();
         String GetServerAddress();
         bool GetSendReadings();
+        void SetServerAddress(String address);
+        void SetLocation(String location);
+        void SetSendReadings(bool send);
+        void Commit();
 };
 
 #endif

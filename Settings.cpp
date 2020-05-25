@@ -35,4 +35,25 @@ bool Settings::GetSendReadings()
     return _settings.SendReadings;
 }
 
+void Settings::SetServerAddress(String address)
+{
+    sprintf(_settings.ServerAddress, "%s", address.c_str());
+}
+
+void Settings::SetLocation(String location)
+{
+    sprintf(_settings.Location, "%s", location.c_str());
+}
+
+void Settings::SetSendReadings(bool send)
+{
+    _settings.SendReadings = send;
+}
+
+void Settings::Commit()
+{
+    EEPROM.put(2, _settings);
+    EEPROM.commit();
+}
+
 Settings GlobalSettings;

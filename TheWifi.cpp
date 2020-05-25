@@ -147,7 +147,6 @@ void TheWifi::HandleServerRoot()
         }
     } 
 
-
     for (int i = 0; i < dedupedCount; ++i) 
     {
         html += F("<option value=\"");
@@ -183,10 +182,31 @@ void TheWifi::HandleServerComplete()
     String html = F("<html><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><head><title>Sensor Setup</title></head>");
     html += F("<style>table, tr, td {border: none; }</style>");
     html += F("<body><h1>Sensor Setup Complete</h1>");
+
     html += F("<p>Your settings have been saved. The sensor will now restart and attempt to connect to the wifi network you have specified.</p><p>If there are connection issues, ");
     html += F("hold down the button when powering on the sensor to bring up the sensor in setup access point mode</p></body></html>");
 
     _webServer->send(200, "text/html", html);
+    HandleSoftApClient();
+
+    delay(1000);
+
+    GlobalSettings.SetLocation(_webServer->arg("location"));
+    GlobalSettings.SetSendReadings(_webServer->arg("client"));
+    GlobalSettings.SetServerAddress(_webServer->arg("server"));
+    GlobalSettings.Commit();
+
+    WiFi.disconnect();
+    WiFi.persistent(true);
+    WiFi.mode(WIFI_STA);
+    WiFi.setSleepMode(WIFI_NONE_SLEEP);
+    WiFi.setAutoReconnect(true);
+    WiFi.setOutputPower(17); 
+    WiFi.begin(_webServer->arg("ssid"), _webServer->arg("password"));
+
+    delay(2000);
+
+    ESP.restart();
 }
 
 void TheWifi::HandleSoftApClient()
